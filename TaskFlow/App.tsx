@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import {  ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import LoginPage from './components/loginPage';
 import DashboardCard from './components/dashboardCard';
 import CalendarCard from './components/calendarCard';
 import Board from './components/quickdrawBoard';
 import MemoPad from './components/memoPad';
+
 
 export default function App() {
   const [isDrawingLocked, setIsDrawingLocked] = useState(false);
@@ -16,6 +18,7 @@ export default function App() {
         contentContainerStyle={styles.scrollContent}
         scrollEnabled={!isDrawingLocked}
         >
+        <LoginPage />
         
 
         <DashboardCard />
