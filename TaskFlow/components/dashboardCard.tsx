@@ -2,6 +2,7 @@ import * as React from "react";
 import { Header } from "@rneui/themed";
 
 export default function DashboardCard() {
+  //TODO: send user to home page when home pressed, open hamburger window when hamburger menu pressed
   const handleMenuPress = () => {
     console.log("Menu button pressed.")
   };

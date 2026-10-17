@@ -6,16 +6,19 @@ import {View, StyleSheet} from 'react-native';
 
 export default function Board() {
   const board = useRef(null);
+  //TODO: add ability to save locally, similar to memoPad.tsx
 
   return (
+    
       <View style={styles.container}>
         <Quickdraw
-          ref={board}
+          ref={board} 
           theme="dark"
           grid="dots"
           onChange={(diff) => console.log('changed', diff)}
           style={{ flex: 1 }}
         />
+
       </View>
   );
 };
