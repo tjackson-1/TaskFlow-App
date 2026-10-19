@@ -5,7 +5,7 @@ import {
     View, 
     TextInput, 
     Touchable,
-    SafeAreaViewBase,
+    SafeAreaView,
     ActivityIndicator, 
     Keyboard, 
     Platform,
@@ -42,7 +42,7 @@ export default function LoginPage() {
     };
 
     return (
-        <SafeAreaViewBase style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea}>
             {/* <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 //platform padding for ios/android
             </TouchableWithoutFeedback> */}
@@ -104,7 +104,7 @@ export default function LoginPage() {
                     </View>
                 </View>
             </KeyboardAvoidingView>
-        </SafeAreaViewBase>
+        </SafeAreaView>
 
     );
 }

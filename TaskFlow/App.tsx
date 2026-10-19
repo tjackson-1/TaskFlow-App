@@ -18,7 +18,9 @@ export default function App() {
         contentContainerStyle={styles.scrollContent}
         scrollEnabled={!isDrawingLocked}
         >
-        <LoginPage />
+        {/* <LoginPage /> */}
+        {/* needs to implemented on its own page before seeing the 
+        dashboard and other components */}
         
 
         <DashboardCard />
