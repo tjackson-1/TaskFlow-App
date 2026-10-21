@@ -1,7 +1,17 @@
-import React, { useState } from 'react';
-import {  ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {  
+  ScrollView, 
+  StyleSheet, 
+  Text, 
+  TouchableOpacity, 
+  View,
+  FlatList,
+  ActivityIndicator
+ } from 'react-native';
+import { supabase } from './utils/supabase';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import LoginPage from './components/loginPage';
+import Signup from './components/signup';
 import DashboardCard from './components/dashboardCard';
 import CalendarCard from './components/calendarCard';
 import Board from './components/quickdrawBoard';
@@ -10,7 +20,44 @@ import MemoPad from './components/memoPad';
 
 export default function App() {
   const [isDrawingLocked, setIsDrawingLocked] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<any>(null);
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'signup'>('login');
   
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({data:{session} }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+  if (loading) {
+    return(
+      <View style={styles.centerContent}>
+        <ActivityIndicator size="large" color="#999" />
+      </View>
+    );
+  }
+
+  //is there isnt a session, go to login page
+  if (!session) {
+    return(
+      <SafeAreaProvider>
+        {currentScreen === 'login' ? (
+          <LoginPage onSignupSwitch={() => setCurrentScreen('signup')} /> 
+        ) : (
+          <Signup onLoginSwitch={() => setCurrentScreen('login')} />
+        )}
+      </SafeAreaProvider>
+    );
+  }
+
+
   return (
     <SafeAreaProvider>
       <ScrollView 
@@ -18,36 +65,30 @@ export default function App() {
         contentContainerStyle={styles.scrollContent}
         scrollEnabled={!isDrawingLocked}
         >
-        {/* <LoginPage /> */}
-        {/* needs to implemented on its own page before seeing the 
-        dashboard and other components */}
-        
+          <DashboardCard />
 
-        <DashboardCard />
+          <View style={styles.section}>
+            <CalendarCard />
+          </View>
 
-        <View style={styles.section}>
-          <Text style={styles.subHeader}>Calendar</Text>
-          <CalendarCard />
-        </View>
+          <View style={styles.section}>
+            <TouchableOpacity 
+              style={[styles.toggleButton, isDrawingLocked && styles.toggleActive]}
+              onPress={() => setIsDrawingLocked(!isDrawingLocked)}
+            >
+              <Text style={styles.toggleText}>
+                {isDrawingLocked ? 'Drawing Locked (Tap to Scroll)' : '(Tap to Draw)'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.section}>
-          <TouchableOpacity 
-            style={[styles.toggleButton, isDrawingLocked && styles.toggleActive]}
-            onPress={() => setIsDrawingLocked(!isDrawingLocked)}
-          >
-            <Text style={styles.toggleText}>
-              {isDrawingLocked ? 'Drawing Locked (Tap to Scroll)' : '(Tap to Draw)'}
-            </Text>
-          </TouchableOpacity>
-
-          <Board />
+          <View style={styles.section}>
+            <Board />
+          </View>
 
           <View style={styles.section}>
             <MemoPad />
           </View>
-
-        </View>
-
       </ScrollView>
     </SafeAreaProvider>
   );
@@ -58,18 +99,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
-  header: {
-    alignContent: 'center',
-    fontSize: 30,
-    fontWeight: '800',
-    marginTop: 40,
-    color: '#000',
-  },
-  subHeader: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 4,
-    color: '#000',
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   section: {
     marginVertical: 14,

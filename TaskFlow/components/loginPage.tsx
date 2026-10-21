@@ -14,8 +14,9 @@ import {
 } from 'react-native';
 import { TouchableWithoutFeedback } from "react-native";
 import {router} from 'expo-router';
+import { supabase } from "../utils/supabase";
 
-export default function LoginPage() {
+export default function LoginPage({onSignupSwitch}: {onSignupSwitch: () => void}) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -33,7 +34,17 @@ export default function LoginPage() {
 
         try{
             //TODO: add auth API call
-
+          const {error} = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password: password.trim(),
+          });
+          
+          if (error){
+            setErrorMessage(error.message);
+            setLoading(false);
+            return;
+          }
+          //router.replace('/calendarCard');
         } catch (error){
             setErrorMessage('Invalid email or password.');
         } finally {
@@ -43,17 +54,13 @@ export default function LoginPage() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                //platform padding for ios/android
-            </TouchableWithoutFeedback> */}
             <KeyboardAvoidingView>
-
-                <View style={styles.innerContainer}>
+                <View style={styles.header}>
                     <Text style={styles.title}>Welcome Back</Text>
                     <Text style={styles.subtitle}>Sign in to continue.</Text>
                 </View>
 
-                {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}4
+                {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
                 <View style={styles.inputGroup}>
                     <TextInput
@@ -75,9 +82,10 @@ export default function LoginPage() {
                     textContentType="password"
                     />
 
+                    {/*need to make this work too */}
                     <TouchableOpacity
-                        style={styles.forgotButton}
-                        onPress={() => router.push('./forgot-password')}
+                        style={styles.forgotButtonContainer}
+                        onPress={() => router.push('/forgot-password')}
                     >
                         <Text style={styles.forgotButton}>Forgot Password?</Text>
                     </TouchableOpacity>
@@ -98,7 +106,7 @@ export default function LoginPage() {
                     {/* Signup / Footer */}
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>Don't have an account?</Text>
-                        <TouchableOpacity onPress={() => router.push('./signup')}>
+                        <TouchableOpacity onPress={onSignupSwitch}>
                             <Text style={styles.signUpText}>Sign Up</Text>
                         </TouchableOpacity>
                     </View>
@@ -110,48 +118,52 @@ export default function LoginPage() {
 }
 
 const styles = StyleSheet.create({
-    safeArea:{
-        flex: 1,
-        backgroundColor: '#fff'
-    },
-    container: {
+  safeArea:{
     flex: 1,
+    backgroundColor: '#fff'
   },
-  innerContainer: {
+  container: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 28,
   },
   header: {
-    marginBottom: 32,
+    marginBottom: 24,
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    marginTop: 250,
   },
   title: {
     fontSize: 30,
     fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 8,
+    color: '#000',
+    marginBottom: 8
   },
   subtitle: {
     fontSize: 15,
-    color: '#666666',
+    color: '#666'
   },
   inputGroup: {
-    gap: 14,
+    gap: 14
   },
   input: {
     height: 52,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: '#fff',
     borderRadius: 10,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#000',
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#999'
+  },
+  forgotButtonContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 10,
+    marginTop: 2
   },
   forgotButton: {
     alignSelf: 'flex-end',
     marginTop: 10,
-    marginBottom: 24,
+    marginBottom: 24
   },
   button: {
     height: 52,
@@ -169,12 +181,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
   errorText: {
-    color: '#FF3B30',
+    color: '#ff2418',
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
@@ -182,17 +194,19 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 28,
+    alignItems: 'center',
+    marginTop: 22,
   },
   footerText: {
-    color: '#666666',
+    color: '#666',
     fontSize: 14,
   },
   signUpText: {
+    padding: 10,
     color: '#007AFF',
     fontSize: 14,
     fontWeight: '600',
-  },
+  }
 });
 
 
