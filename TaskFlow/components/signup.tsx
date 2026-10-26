@@ -78,7 +78,7 @@ export default function Signup({onLoginSwitch}: {onLoginSwitch: () => void}) {
                     {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
                     <TextInput style={styles.input}
-                        placeholder="Full Name"
+                        placeholder="Name"
                         placeholderTextColor="#999"
                         value={name}
                         onChangeText={setName}

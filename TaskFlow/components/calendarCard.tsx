@@ -1,33 +1,94 @@
-import React, {useState} from "react";
-import { StyleSheet, Text, View, TextInput, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from "react-native";
 import { Calendar, /*CalendarList, Agenda*/ } from "react-native-calendars";
+import { supabase } from "../utils/supabase";
 
 interface EventItem{
-    id: string;
+    event_id: number;
     title: string;
     description?: string;
-    date: string; //YYYY-MM-DD format, add to db as well
-    startTime: string;
-    endTime: string;
+    start_time: string;
+    end_time: string;
     location?: string;
 }
 
 export default function CalendarCard(){
-    const [selectedDate, setSelectedDate] = useState(
-      new Date().toISOString().split('T')[0]); //UTC time
+    
 
-    //mock event data
-    const [events, setEvents] = useState<{ [key: string]: EventItem[] }> ({
-    '2026-10-07': [
-      { id: '1', title: 'Sprint 1 Review', date: '2026-10-07', startTime: '12:30 PM', endTime: '1:45 PM', location: 'ATHS E200' },
-    ]
-  });
+  //   //mock event data
+  //   const [events, setEvents] = useState<{ [key: string]: EventItem[] }> ({
+  //   '2026-10-07': [
+  //     { id: '1', title: 'Sprint 1 Review', date: '2026-10-07', startTime: '12:30 PM', endTime: '1:45 PM', location: 'ATHS E200' },
+  //   ]
+  // });
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split('T')[0]); //UTC time
+
+  //store events for logged in users
+  const [events, setEvents] = useState<{ [key:string]: EventItem[] }>({});
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null); 
 
   //states for making new events
   const [newTitle, setNewTitle] = useState('');
   const [newStartTime, setNewStartTime] = useState('');
   const [newEndTime, setNewEndTime] = useState('');
   const [newLocation, setNewLocation] = useState('');
+
+  useEffect(() => {
+    fetchUserAndEvents();
+    }, []);
+
+    const fetchUserAndEvents = async () => {
+        try {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session?.user) {
+              console.log("No user logged in");
+              return;
+            }
+
+            const authUuid = session.user.id;
+
+            // 1. Fetch the integer user_id from your User table (created automatically by the trigger)
+            const { data: userRows, error: userError } = await supabase
+              .from('User')
+              .select('user_id')
+              .eq('supabase_uid', authUuid)
+              .limit(1);
+
+            if (userError || !userRows || userRows.length === 0) {
+              console.error('Error fetching user mapping:', userError?.message);
+              Alert.alert('Database Error', 'No public user profile found. Try signing out and signing back in.');
+              return;
+            }
+
+            // 2. Set currentUserId to the integer user_id
+            setCurrentUserId(userRows[0].user_id);
+
+            // 3. Fetch events
+            const { data, error } = await supabase
+              .from('Calendar_Event')
+              .select('*');
+
+            if (error) {
+              console.error('Error fetching events:', error.message);
+              return;
+            }
+
+            if (!data) return;
+
+            const formattedEvents: { [key: string]: EventItem[] } = {};
+            data.forEach((item: any) => {
+              const eventDate = item.start_time ? item.start_time?.split('T')[0] : selectedDate;
+              if (!formattedEvents[eventDate]) {
+                formattedEvents[eventDate] = [];
+              }
+              formattedEvents[eventDate].push(item);
+          });
+          setEvents(formattedEvents);
+        } catch (err) {
+            console.error('Unexpected error loading user events:', err);
+        }
+    };
  
   //generates marked dates based on event states
   const markedDates = Object.keys(events).reduce((acc, date) => {
@@ -44,30 +105,55 @@ export default function CalendarCard(){
   const currentEvents = events[selectedDate] || [];
 
   //adding new events
-  const handleAddEvent = () => {
+  const handleAddEvent = async () => {
     if (!newTitle.trim()) return;
 
-    const newEvent : EventItem = {
-        id: Date.now().toString(),
-        title: newTitle,
-        date: selectedDate,
-        startTime: newStartTime,
-        endTime: newEndTime,
-        location: newLocation.trim() ? newLocation : undefined,
+    if (!currentUserId) {
+      Alert.alert('Authentication Error', 'You must be logged in to save events.');
+      return;
+    }
+
+    const newEvent  = {
+        event_id: currentUserId,
+        title: newTitle.trim(),
+        start_time: selectedDate,
+        end_time: selectedDate,
+        location: newLocation.trim() ? newLocation.trim() : undefined,
     };
 
-    setEvents((prevEvents) => {
-        const dayEvents = prevEvents[selectedDate] || [];
-        return {
-            ...prevEvents,
-            [selectedDate]: [...dayEvents, newEvent],
-        };
-    });
+    try {
+      const { data, error } = await supabase
+          .from('Calendar_Event')
+          .insert([newEvent])
+          .select();
 
-    //resetting fields
-    setNewTitle('');
-    setNewLocation('');
-  };
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+          const insertedEvent: EventItem = {
+              ...data[0],
+              date: selectedDate,
+          };
+
+          setEvents((prevEvents) => {
+              const dayEvents = prevEvents[selectedDate] || [];
+              return {
+                  ...prevEvents,
+                  [selectedDate]: [...dayEvents, insertedEvent],
+              };
+          });
+      }
+
+      // resetting fields
+      setNewTitle('');
+      setNewStartTime('');
+      setNewEndTime('');
+      setNewLocation('');
+  } catch (error: any) {
+      console.error('Error inserting event:', error.message);
+      Alert.alert('Save Failed', 'Could not save the event to the database.');
+  }
+};
 
   return (
     <View style={styles.container}>
@@ -85,10 +171,10 @@ export default function CalendarCard(){
       <View style={styles.eventSection}>
         <Text style={styles.headerTitle}>Events for {selectedDate}</Text>
         {currentEvents.length > 0 ? (
-          currentEvents.map((event) => (
-            <View key={event.id} style={styles.eventCard}>
+          currentEvents.map((event, index) => (
+            <View key={event.event_id || index.toString()} style={styles.eventCard}>
               <Text style={styles.eventTitle}>{event.title}</Text>
-              <Text style={styles.timeText}>{event.startTime} - {event.endTime}</Text>
+              <Text style={styles.timeText}>{event.start_time} - {event.end_time}</Text>
               {event.location ? <Text style={styles.locationText}>@ {event.location}</Text> : null}
             </View>
           ))
@@ -96,7 +182,7 @@ export default function CalendarCard(){
           <Text style={styles.noEventText}>No events scheduled for this day.</Text>
         )}
       </View>
-        //Adding Event Form
+        {/*Adding Event Form*/}
         <View style={styles.formContainer}>
         <Text style={styles.formHeader}>Add an Event to the Selected Date</Text>
         <TextInput style={styles.input} 

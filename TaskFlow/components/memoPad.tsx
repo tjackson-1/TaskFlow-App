@@ -21,6 +21,17 @@ export default function MemoPad() {
     try{
         const fileName = `memo_${Date.now()}.txt`;
         const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+        const dirUri = FileSystem.cacheDirectory;
+        if(!dirUri) {
+            Alert.alert('Error', 'Cache directory is not available.');
+            return;
+        }
+
+        const dirInfo = await FileSystem.getInfoAsync(dirUri);
+        if (!dirInfo.exists) {
+            await FileSystem.makeDirectoryAsync(dirUri, { intermediates: true });
+        }
+
 
         await FileSystem.writeAsStringAsync(fileUri, memo, {
             encoding: FileSystem.EncodingType.UTF8,
@@ -35,7 +46,8 @@ export default function MemoPad() {
             setSavedStatus('Export .txt');
             setTimeout(() => setSavedStatus(''), 2000);
         }else{
-            Alert.alert('Sharing Unavailable', 'Sharing is not supporte');
+            setSavedStatus('Saved to device locally.');
+            setTimeout(() => setSavedStatus(''), 2000);
         }
     }catch (error){
         console.error('Error saving file.', error);

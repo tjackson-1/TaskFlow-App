@@ -60,12 +60,13 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <DashboardCard />
+
       <ScrollView 
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         scrollEnabled={!isDrawingLocked}
         >
-          <DashboardCard />
 
           <View style={styles.section}>
             <CalendarCard />
