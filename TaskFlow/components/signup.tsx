@@ -43,7 +43,7 @@ export default function Signup({onLoginSwitch}: {onLoginSwitch: () => void}) {
 
         try {
             //API call, database trigger
-            const { data: authData, error: authError } = await supabase.auth.signUp({
+            const { data, error: authError } = await supabase.auth.signUp({
                 email: email.trim(),
                 password: password.trim(),
                 options: {
@@ -54,11 +54,15 @@ export default function Signup({onLoginSwitch}: {onLoginSwitch: () => void}) {
             });
 
             if (authError) {
+                console.log("Supabase Auth Error:", authError.message);
                 setErrorMessage(authError.message);
                 setLoading(false);
                 return;
             };
+            console.log("Signup Success Data:", data);
+
         } catch (error) {
+            console.log("Catch Error:", error);
             setErrorMessage("Could not create account.")
         } finally {
             setLoading(false);

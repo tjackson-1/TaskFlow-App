@@ -12,7 +12,7 @@ export default function Board() {
     try {
       const base64Data = dataUrl.split(',')[1];
       const fileName = `drawing_${Date.now()}.png`;
-      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
       await FileSystem.writeAsStringAsync(fileUri, base64Data, {
         encoding: FileSystem.EncodingType.Base64,

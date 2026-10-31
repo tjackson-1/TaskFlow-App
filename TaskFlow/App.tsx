@@ -72,13 +72,13 @@ export default function App() {
             <CalendarCard />
           </View>
 
-          <View style={styles.section}>
+          <View style={styles.buttonSection}>
             <TouchableOpacity 
               style={[styles.toggleButton, isDrawingLocked && styles.toggleActive]}
               onPress={() => setIsDrawingLocked(!isDrawingLocked)}
             >
               <Text style={styles.toggleText}>
-                {isDrawingLocked ? 'Drawing Locked (Tap to Scroll)' : '(Tap to Draw)'}
+                {isDrawingLocked ? '↕' : '✐ᝰ'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -106,11 +106,16 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   section: {
-    marginVertical: 14,
+    marginVertical: 10,
     marginHorizontal: 4
   },
   scrollContent: {
     paddingBottom: 100
+  },
+  buttonSection: {
+    marginTop: 0,
+    marginHorizontal: 4,
+    marginBottom: 0
   },
   toggleText: {
     fontSize: 12,
@@ -121,6 +126,7 @@ const styles = StyleSheet.create({
     color: 'black'
   },
   toggleButton: {
+    alignSelf: 'center',
     backgroundColor: '#d8ebff',
     paddingHorizontal: 10,
     paddingVertical: 6,
