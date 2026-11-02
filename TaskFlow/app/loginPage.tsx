@@ -4,25 +4,26 @@ import {
     Text, 
     View, 
     TextInput, 
-    Touchable,
     SafeAreaView,
     ActivityIndicator, 
     Keyboard, 
-    Platform,
+    //Platform,
     TouchableOpacity,
-    KeyboardAvoidingView
+    KeyboardAvoidingView,
+    ScrollView,
+    Platform
 } from 'react-native';
-import { TouchableWithoutFeedback } from "react-native";
 import {router} from 'expo-router';
 import { supabase } from "../utils/supabase";
 
-export default function LoginPage({onSignupSwitch}: {onSignupSwitch: () => void}) {
+export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] =useState('');
 
     const handleLogin = async () => {
+        console.log("Sign in button tapped.");
         if (!email || !password) {
             setErrorMessage('Please fill in all form fields.');
             return;
@@ -44,7 +45,7 @@ export default function LoginPage({onSignupSwitch}: {onSignupSwitch: () => void}
             setLoading(false);
             return;
           }
-          //router.replace('/calendarCard');
+          router.replace('/');
         } catch (error){
             setErrorMessage('Invalid email or password.');
         } finally {
@@ -54,7 +55,15 @@ export default function LoginPage({onSignupSwitch}: {onSignupSwitch: () => void}
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <KeyboardAvoidingView>
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1 }}
+            >
+
+              <ScrollView
+                contentContainerStyle={styles.scrollContainer}
+                keyboardShouldPersistTaps="handled"
+              >
                 <View style={styles.header}>
                     <Text style={styles.title}>Welcome Back</Text>
                     <Text style={styles.subtitle}>Sign in to continue.</Text>
@@ -87,7 +96,7 @@ export default function LoginPage({onSignupSwitch}: {onSignupSwitch: () => void}
                         style={styles.forgotButtonContainer}
                         onPress={() => router.push('/forgot-password')}
                     >
-                        <Text style={styles.forgotButton}>Forgot Password?</Text>
+                      <Text style={styles.forgotButton}>Forgot Password?</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -106,11 +115,12 @@ export default function LoginPage({onSignupSwitch}: {onSignupSwitch: () => void}
                     {/* Signup / Footer */}
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>Don't have an account?</Text>
-                        <TouchableOpacity onPress={onSignupSwitch}>
+                        <TouchableOpacity onPress={() => router.push('/signup')}>
                             <Text style={styles.signUpText}>Sign Up</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
+              </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
 
@@ -120,17 +130,15 @@ export default function LoginPage({onSignupSwitch}: {onSignupSwitch: () => void}
 const styles = StyleSheet.create({
   safeArea:{
     flex: 1,
-    backgroundColor: '#fff'
+    backgroundColor: '#F5F5F7',
   },
-  container: {
-    flex: 1,
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 24,
   },
   header: {
     marginBottom: 24,
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    marginTop: 250,
   },
   title: {
     fontSize: 30,
@@ -143,17 +151,17 @@ const styles = StyleSheet.create({
     color: '#666'
   },
   inputGroup: {
-    gap: 14
+    padding: 14
   },
   input: {
     height: 52,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F7',
     borderRadius: 10,
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#000',
     borderWidth: 1,
-    borderColor: '#999'
+    borderColor: '#E5E5EA'
   },
   forgotButtonContainer: {
     alignSelf: 'flex-end',
@@ -171,11 +179,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
   },
   buttonDisabled: {
     opacity: 0.7,

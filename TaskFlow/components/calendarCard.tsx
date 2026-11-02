@@ -114,7 +114,7 @@ export default function CalendarCard(){
     }
 
     const newEvent  = {
-        event_id: currentUserId,
+        user_id: currentUserId, //changed from event_id to match user_id column
         title: newTitle.trim(),
         start_time: selectedDate,
         end_time: selectedDate,
@@ -125,7 +125,7 @@ export default function CalendarCard(){
       const { data, error } = await supabase
           .from('Calendar_Event')
           .insert([newEvent])
-          .select();
+          .select('*');
 
       if (error) throw error;
 
@@ -174,7 +174,7 @@ export default function CalendarCard(){
           currentEvents.map((event, index) => (
             <View key={event.event_id || index.toString()} style={styles.eventCard}>
               <Text style={styles.eventTitle}>{event.title}</Text>
-              <Text style={styles.timeText}>{event.start_time} - {event.end_time}</Text>
+              <Text style={styles.timeText}>{event.start_time}  {event.end_time}</Text>
               {event.location ? <Text style={styles.locationText}>@ {event.location}</Text> : null}
             </View>
           ))
@@ -221,64 +221,64 @@ export default function CalendarCard(){
 
 
 const styles = StyleSheet.create({
-    container: {
-        backgroundColor: '000',
-        borderRadius: 12,
-        padding: 20,
-        marginVertical: 5
-    },
-    eventSection: {
-        borderTopWidth: 2,
-        borderTopColor: 'black'
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: 'black'
-    },
-    eventCard: {
-        backgroundColor: '#fff',
-        borderTopColor: 'black',
-        borderTopWidth: 1,
-        borderRadius: 2,
-        marginVertical: 2
-    },
-    eventTitle: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: 'black'
-    },
-    description: {
-        fontSize: 13,
-        color: 'black'
-    },
-    noEventText: {
-        fontSize: 14,
-        color: 'black',
-        fontStyle: 'italic'
-    },
-    timeText: {
-        fontSize: 12,
-        color: 'black'
-    },
-    locationText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: 'black'
-    },
-    formContainer: {
-        marginTop: 10,
-        paddingTop: 4,
-        borderTopWidth: 1,
-        borderTopColor: 'black'
-    }, 
-    formHeader:{
-        fontSize: 16,
-        fontWeight: '700',
-        marginBottom: 4,
-        color: 'black',
-    },
-    input: {
+  container: {
+    backgroundColor: '000',
+    borderRadius: 12,
+    padding: 20,
+    marginVertical: 5
+  },
+  eventSection: {
+    borderTopWidth: 2,
+    borderTopColor: 'black'
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: 'black'
+  },
+  eventCard: {
+    backgroundColor: '#fff',
+    borderTopColor: 'black',
+    borderTopWidth: 1,
+    borderRadius: 2,
+    marginVertical: 2
+  },
+  eventTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: 'black'
+  },
+  description: {
+    fontSize: 13,
+    color: 'black'
+  },
+  noEventText: {
+    fontSize: 14,
+    color: 'black',
+    fontStyle: 'italic'
+  },
+  timeText: {
+    fontSize: 12,
+    color: 'black'
+  },
+  locationText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'black'
+  },
+  formContainer: {
+    marginTop: 10,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'black'
+  }, 
+  formHeader:{
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+    color: 'black',
+  },
+  input: {
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ccc',

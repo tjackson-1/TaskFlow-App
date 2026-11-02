@@ -1,9 +1,31 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
+import { supabase } from '../utils/supabase';
 
 export default function ForgotPasswordScreen() {
     const [email, setEmail] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handlePasswordReset = async () => {
+        if (!email.trim()) {
+            Alert.alert("Error", "Please enter your email address.");
+            return;
+        }
+        setLoading(true);
+        
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+            redirectTo: 'taskflow://reset-password'
+        });
+        setLoading(false);
+
+        if (error) {
+            Alert.alert("Error", error.message);
+        }else {
+            Alert.alert("Check your email.", "A password reset link has been sent to your email address.");
+            router.back();
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -15,7 +37,14 @@ export default function ForgotPasswordScreen() {
                 value={email}
                 onChangeText={setEmail}
             />
-            <TouchableOpacity style={styles.button} onPress={() => alert('Reset link sent.')}>
+            <TouchableOpacity style={styles.button}
+                onPress={handlePasswordReset}
+                disabled={loading}
+            >
+                <Text style={styles.buttonText}>{loading ? 'Sending' : 'Send Reset Password Link'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.button} onPress={() => router.back()}>
                 <Text style={styles.backText}>Back to Login page</Text>
             </TouchableOpacity>
         </View>
@@ -56,6 +85,6 @@ const styles = StyleSheet.create({
         alignItems: 'center' 
     },
     backText: { 
-        color: '#007AFF' 
+        color: '#fff' 
     }
 });

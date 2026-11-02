@@ -143,8 +143,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#226cff',
     },
     saveButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#fff',
     }
 });
