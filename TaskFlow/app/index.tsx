@@ -1,71 +1,129 @@
-import React, { useState,useEffect } from 'react';
-import {  
-    Alert,
-  ScrollView, 
-  StyleSheet, 
-  Text, 
-  TouchableOpacity, 
-  View
- } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Platform
+} from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import DashboardCard from '../components/dashboardCard';
 import CalendarCard from '../components/calendarCard';
 import Board from '../components/quickdrawBoard';
 import MemoPad from '../components/memoPad';
 import { supabase } from '../utils/supabase';
-import * as Google from 'expo-auth-session/providers/google';
+import { saveGmailTokens } from '../utils/gmailTokens';
 import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function App() {
   const [isDrawingLocked, setIsDrawingLocked] = useState(false);
-
-  //google authentication setup
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: "396456010275-tkp4ek2uvenkoi2kn4h0vk0ovbb49j5s.apps.googleusercontent.com",
-    scopes: ['https://www.googleapis.com/auth/gmail.readonly']
-    
-  });
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isGmailConnected, setIsGmailConnected] = useState(false);
 
   useEffect(() => {
-    if (response?.type === 'success'){
-        const { authentication } = response;
-        const accessToken = authentication?.accessToken;
-        const refreshToken = authentication?.refreshToken;
+    checkGmailConnection();
+  }, []);
 
-        //send tokens to supabase
-        saveGmailTokens(accessToken, refreshToken);
+  const checkGmailConnection = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('User')
+        .select('user_id')
+        .eq('supabase_uid', user.id)
+        .maybeSingle();
+
+      if (!profile) return;
+
+      const { data: tokenRecord } = await supabase
+        .from('user_gmail_tokens')
+        .select('access_token')
+        .eq('user_id', profile.user_id)
+        .maybeSingle();
+
+      setIsGmailConnected(!!tokenRecord?.access_token);
+    } catch (err) {
+      console.error('Error checking Gmail status:', err);
     }
-  }, [response]);
+  };
 
-  const saveGmailTokens = async (accessToken?: string, refreshToken?: string) => {
-    try{
-        const {data: { user }} = await supabase.auth.getUser();
-        if (!user) return;
+  // Google authentication setup
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsSyncing(true);
+      const redirectTo = AuthSession.makeRedirectUri({
+        scheme: 'taskflow',
+        path: 'auth/callback'
+      });
 
-        //check user in supabase
-        const {data: profile, error: profileError} = await supabase
-            .from('User')
-            .select('user_id')
-            .eq('supabase_uid', user.id)
-            .single();
-
-        if (profileError || !profile) {
-            Alert.alert("User profile not found in database.");
-            return;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+          scopes: 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
-        //save tokens into user_gmail_token
-        const { error } = await supabase.from('user_gmail_tokens').upsert({
-            user_id: profile?.user_id,
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            date_updated: new Date(),
-        });
-        if (error) throw error;
-        Alert.alert("Success", "Gmail connected successfully.");
-    }catch (error: any){
-        Alert.alert("Error", error.message || "Failed to save Gmail token.");
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error('No OAuth URL returned from Supabase.');
+
+      // Web: full-page redirect. app/auth/callback.tsx finishes the job.
+      if (Platform.OS === 'web') {
+        window.location.href = data.url;
+        return;
+      }
+
+      // Native: open the auth browser and read the redirect URL it returns
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type !== 'success') return; // cancelled or dismissed
+
+      const url = result.url;
+      const params = new URLSearchParams(url.split('#')[1] ?? url.split('?')[1] ?? '');
+      const code = new URLSearchParams(url.split('?')[1]?.split('#')[0] ?? '').get('code');
+
+      let providerToken: string | null | undefined;
+      let providerRefresh: string | null | undefined;
+
+      if (code) {
+        const { data: s, error: exError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exError) throw exError;
+        providerToken = s.session?.provider_token;
+        providerRefresh = s.session?.provider_refresh_token;
+      } else {
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+        if (!access_token || !refresh_token) throw new Error('No token in redirect URL.');
+
+        const { error: setError } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (setError) throw setError;
+        providerToken = params.get('provider_token');
+        providerRefresh = params.get('provider_refresh_token');
+      }
+
+      if (!providerToken) {
+        Alert.alert('Auth notice', 'Signed in, but no Gmail token was returned. Check scopes and Google consent screen.');
+        return;
+      }
+
+      await saveGmailTokens(providerToken, providerRefresh ?? undefined);
+      setIsGmailConnected(true);
+      Alert.alert('Success', 'Gmail connected successfully.');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to connect Gmail');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -73,43 +131,54 @@ export default function App() {
     <SafeAreaProvider>
       <DashboardCard />
 
-      <ScrollView 
+      <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         scrollEnabled={!isDrawingLocked}
-        >
-            <View style={styles.gmailSection}>
-                <Text style={styles.title}>Gmail Sync</Text>
-                <TouchableOpacity style={styles.button}
-                    disabled={!request}
-                    onPress={() => promptAsync()}
-                >
-                    <Text style={styles.buttonText}>Connect Gmail Inbox</Text>
-                </TouchableOpacity>
-            </View>
-
-          <View style={styles.section}>
-            <CalendarCard />
-          </View>
-
-          <View style={styles.buttonSection}>
-            <TouchableOpacity 
-              style={[styles.toggleButton, isDrawingLocked && styles.toggleActive]}
-              onPress={() => setIsDrawingLocked(!isDrawingLocked)}
-            >
-              <Text style={styles.toggleText}>
-                {isDrawingLocked ? '↕' : '✐ᝰ'}
+      >
+        <View style={styles.gmailSection}>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Gmail Sync</Text>
+            <View style={[styles.badge, isGmailConnected ? styles.badgeConnected : styles.badgeDisconnected]}>
+              <Text style={[styles.badgeText, isGmailConnected ? styles.badgeTextConnected : styles.badgeTextDisconnected]}>
+                {isGmailConnected ? '● Connected' : '○ Not Connected'}
               </Text>
-            </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={styles.section}>
-            <Board />
-          </View>
+          <TouchableOpacity
+            style={[styles.button, isGmailConnected && styles.connectedButton]}
+            onPress={handleGoogleSignIn}
+            disabled={isSyncing}
+          >
+            <Text style={styles.buttonText}>
+              {isSyncing ? 'Connecting...' : isGmailConnected ? 'Reconnect / Update Gmail' : 'Connect Gmail Inbox'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.section}>
-            <MemoPad />
-          </View>
+        <View style={styles.section}>
+          <CalendarCard />
+        </View>
+
+        <View style={styles.buttonSection}>
+          <TouchableOpacity
+            style={[styles.toggleButton, isDrawingLocked && styles.toggleActive]}
+            onPress={() => setIsDrawingLocked(!isDrawingLocked)}
+          >
+            <Text style={styles.toggleText}>
+              {isDrawingLocked ? '↕' : '✐ᝰ'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Board />
+        </View>
+
+        <View style={styles.section}>
+          <MemoPad />
+        </View>
       </ScrollView>
     </SafeAreaProvider>
   );
@@ -156,10 +225,20 @@ const styles = StyleSheet.create({
   },
   toggleActive: {
     backgroundColor: '#f2f8ff'
-  }, 
+  },
   gmailSection: {
     padding: 24,
-    borderWidth: 1
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    margin: 4,
+    backgroundColor: '#fafafa'
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10
   },
   title: {
     fontSize: 14,
@@ -177,5 +256,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600'
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12
+  },
+  badgeConnected: {
+    backgroundColor: '#e1f5fe'
+  },
+  badgeDisconnected: {
+    backgroundColor: '#ffebee'
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  badgeTextConnected: {
+    color: '#0089d3'
+  },
+  badgeTextDisconnected: {
+    color: '#bb1c1c'
+  },
+  connectedButton: {
+    backgroundColor: '#1dd14a'
   }
 });

@@ -1,6 +1,5 @@
 import React from "react";
-import { Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Header } from "@rneui/themed";
+import { Image, TouchableOpacity, StyleSheet, Alert, View } from 'react-native';
 import { supabase } from "../utils/supabase";
 
 export default function DashboardCard() {
@@ -35,36 +34,37 @@ export default function DashboardCard() {
     console.log("Home button pressed.")
   };
   return (
-    <Header
-      backgroundColor="black"
-      barStyle="default"
-      centerComponent={{
-          text: "TASKFLOW",
-          style: { color: "#fff", fontWeight: "bold" }
-      }}
-      containerStyle={{ width: '100%' }}
-      leftComponent={
-        <TouchableOpacity onPress={handleMenuPress} style={styles.iconButton}>
-          <Image
-            source={require('../assets/menu.png')}
-            style={styles.iconImage} 
-          />
-        </TouchableOpacity>
-      }
-      rightComponent={
-        <TouchableOpacity onPress={handleHomePress} style={styles.iconButton}>
-          <Image
-            source={require('../assets/home.png')}
-            style={styles.iconImage} 
-          />
-        </TouchableOpacity>
-      }
-      placement="center"
-    />
+    <View style={styles.header}>
+      <TouchableOpacity onPress={handleMenuPress} style={styles.iconButton}>
+        <Image
+          source={require('../assets/menu.png')}
+          style={styles.iconImage} 
+        />
+      </TouchableOpacity>
+    
+      <TouchableOpacity onPress={handleHomePress} style={styles.iconButton}>
+        <Image
+          source={require('../assets/home.png')}
+          style={styles.iconImage} 
+        />
+      </TouchableOpacity>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
+  header: {
+    width: '100%',
+    backgroundColor:"black",
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 10,
+    justifyContent: 'space-between'
+  },
+  title: {
+    color: '#fff',
+    fontWeight: 'bold'
+  },
   iconButton: {
     justifyContent: 'center',
     alignItems: 'center',
