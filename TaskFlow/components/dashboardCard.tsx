@@ -1,5 +1,11 @@
 import React from "react";
-import { Image, TouchableOpacity, StyleSheet, Alert, View } from 'react-native';
+import { 
+  Image, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  View 
+} from 'react-native';
 import { supabase } from "../utils/supabase";
 
 export default function DashboardCard() {

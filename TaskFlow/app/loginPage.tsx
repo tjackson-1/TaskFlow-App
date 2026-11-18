@@ -7,7 +7,6 @@ import {
     SafeAreaView,
     ActivityIndicator, 
     Keyboard, 
-    //Platform,
     TouchableOpacity,
     KeyboardAvoidingView,
     ScrollView,
