@@ -5,8 +5,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Platform
+  View
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import DashboardCard from '../components/dashboardCard';
@@ -78,12 +77,6 @@ export default function App() {
 
       if (error) throw error;
       if (!data?.url) throw new Error('No OAuth URL returned from Supabase.');
-
-      // Web: full-page redirect. app/auth/callback.tsx finishes the job.
-      if (Platform.OS === 'web') {
-        window.location.href = data.url;
-        return;
-      }
 
       // Native: open the auth browser and read the redirect URL it returns
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);

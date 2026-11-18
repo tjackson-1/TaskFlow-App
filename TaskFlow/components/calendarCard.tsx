@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from "react-native";
-import { Calendar, DateData, /*CalendarList, Agenda*/ } from "react-native-calendars";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, Platform } from "react-native";
+import { Calendar, DateData } from "react-native-calendars";
 import { supabase } from "../utils/supabase";
 
-interface EventItem{
-    event_id: number;
-    title: string;
-    description?: string;
-    start_time: string;
-    end_time: string;
-    location?: string;
+interface EventItem {
+  event_id: number;
+  title: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  location?: string;
 }
+
+// date helpers (everything is handled in the device's local time)
 
 const toLocalDateString = (d: Date) => {
   const y = d.getFullYear();
@@ -36,7 +38,7 @@ const parseTime = (input: string) => {
   return { h, m };
 };
 
-// makes an ISO timestamp for the selected day at the given time (blank = start of day)
+// Builds an ISO timestamp for the given day at the given time (blank = start of day)
 const buildTimestamp = (dateStr: string, timeStr: string) => {
   const [y, mo, d] = dateStr.split("-").map(Number);
   const t = timeStr.trim() ? parseTime(timeStr) : { h: 0, m: 0 };
@@ -51,18 +53,36 @@ const formatTime = (value: string) => {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 };
 
+const confirmDelete = (title: string, message: string, onConfirm: () => void) => {
+  if (Platform.OS === "web") {
+    if (window.confirm(`${title}\n\n${message}`)) onConfirm();
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: "Cancel", style: "cancel" },
+    { text: "Delete", style: "destructive", onPress: onConfirm },
+  ]);
+};
+
 export default function CalendarCard() {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()));
 
+  // events for the logged in user, by local date
   const [events, setEvents] = useState<{ [key: string]: EventItem[] }>({});
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // event form (used for both adding and editing)
   const [newTitle, setNewTitle] = useState("");
   const [newStartTime, setNewStartTime] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
   const [newLocation, setNewLocation] = useState("");
 
+  // edit mode: which event is being edited, and which day it lives on
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingDate, setEditingDate] = useState("");
+
+  // load user and events
 
   const fetchUserAndEvents = useCallback(async () => {
     try {
@@ -115,7 +135,7 @@ export default function CalendarCard() {
     fetchUserAndEvents();
   }, [fetchUserAndEvents]);
 
-  // ---------- Gmail sync ----------
+  // Gmail sync
 
   const handleGmailSync = async () => {
     if (!currentUserId) {
@@ -215,10 +235,10 @@ export default function CalendarCard() {
     }
   };
 
-  // ---------- calendar marks ----------
+  // calendar marks
 
   const markedDates = Object.keys(events).reduce((acc, date) => {
-    acc[date] = { marked: true, dotColor: "#007AFF" };
+    if (events[date].length > 0) acc[date] = { marked: true, dotColor: "#007AFF" };
     return acc;
   }, {} as any);
 
@@ -230,7 +250,18 @@ export default function CalendarCard() {
 
   const currentEvents = events[selectedDate] || [];
 
-  // ---------- add event ----------
+  // form helpers
+
+  const resetForm = () => {
+    setNewTitle("");
+    setNewStartTime("");
+    setNewEndTime("");
+    setNewLocation("");
+    setEditingId(null);
+    setEditingDate("");
+  };
+
+  //add event
 
   const handleAddEvent = async () => {
     if (!newTitle.trim()) return;
@@ -271,26 +302,110 @@ export default function CalendarCard() {
         }));
       }
 
-      setNewTitle("");
-      setNewStartTime("");
-      setNewEndTime("");
-      setNewLocation("");
+      resetForm();
     } catch (error: any) {
       console.error("Error inserting event:", error.message);
       Alert.alert("Save Failed", "Could not save the event to the database.");
     }
   };
 
+  // edit event
+
+  const startEdit = (event: EventItem) => {
+    const sameTime = event.end_time === event.start_time;
+    setEditingId(event.event_id);
+    setEditingDate(eventDateKey(event.start_time));
+    setNewTitle(event.title);
+    setNewStartTime(formatTime(event.start_time));
+    setNewEndTime(sameTime ? "" : formatTime(event.end_time));
+    setNewLocation(event.location ?? "");
+  };
+
+  const handleUpdateEvent = async () => {
+    if (editingId === null) return;
+    if (!newTitle.trim()) {
+      Alert.alert("Missing title", "Give the event a title.");
+      return;
+    }
+
+    // the event stays on the day it was created for
+    const start = buildTimestamp(editingDate, newStartTime);
+    const end = buildTimestamp(editingDate, newEndTime || newStartTime);
+    if (!start || !end) {
+      Alert.alert("Invalid time", "Use a format like 8:00 AM or 14:30.");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("Calendar_Event")
+        .update({
+          title: newTitle.trim(),
+          start_time: start,
+          end_time: end,
+          location: newLocation.trim() ? newLocation.trim() : null,
+        })
+        .eq("event_id", editingId)
+        .select("*");
+
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error("Event was not updated. Check your row-level security policy.");
+
+      const updated: EventItem = data[0];
+      setEvents((prev) => ({
+        ...prev,
+        [editingDate]: (prev[editingDate] || []).map((e) => (e.event_id === editingId ? updated : e)),
+      }));
+
+      resetForm();
+    } catch (error: any) {
+      console.error("Error updating event:", error.message);
+      Alert.alert("Update Failed", error.message || "Could not update the event.");
+    }
+  };
+
+  // delete event 
+
+  const deleteEvent = async (event: EventItem) => {
+    try {
+      const { error } = await supabase
+        .from("Calendar_Event")
+        .delete()
+        .eq("event_id", event.event_id);
+
+      if (error) throw error;
+
+      const key = eventDateKey(event.start_time);
+      setEvents((prev) => ({
+        ...prev,
+        [key]: (prev[key] || []).filter((e) => e.event_id !== event.event_id),
+      }));
+
+      // if the deleted event was being edited, close the form
+      if (editingId === event.event_id) resetForm();
+    } catch (error: any) {
+      console.error("Error deleting event:", error.message);
+      Alert.alert("Delete Failed", error.message || "Could not delete the event.");
+    }
+  };
+
+  const handleDeletePress = (event: EventItem) => {
+    confirmDelete("Delete event", `Delete "${event.title}"?`, () => deleteEvent(event));
+  };
+
+
+  const isEditing = editingId !== null;
+
   return (
     <View style={styles.container}>
       <Calendar
         current={selectedDate}
-        onDayPress={(day: DateData ) => setSelectedDate(day.dateString)}
+        onDayPress={(day: DateData) => setSelectedDate(day.dateString)}
         markedDates={markedDates}
         theme={{
-          todayTextColor: '#007AFF',
-          selectedDayBackgroundColor: '#007AFF',
-          arrowColor: '#007AFF',
+          todayTextColor: "#007AFF",
+          selectedDayBackgroundColor: "#007AFF",
+          arrowColor: "#007AFF",
         }}
       />
 
@@ -308,11 +423,27 @@ export default function CalendarCard() {
           currentEvents.map((event, index) => {
             const start = formatTime(event.start_time);
             const end = event.end_time !== event.start_time ? formatTime(event.end_time) : "";
+            const beingEdited = editingId === event.event_id;
             return (
-              <View key={event.event_id ?? index.toString()} style={styles.eventCard}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                {start ? <Text style={styles.timeText}>{end ? `${start} – ${end}` : start}</Text> : null}
-                {event.location ? <Text style={styles.locationText}>@ {event.location}</Text> : null}
+              <View
+                key={event.event_id ?? index.toString()}
+                style={[styles.eventCard, beingEdited && styles.eventCardEditing]}
+              >
+                <View style={styles.eventRow}>
+                  <View style={styles.eventInfo}>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    {start ? <Text style={styles.timeText}>{end ? `${start} – ${end}` : start}</Text> : null}
+                    {event.location ? <Text style={styles.locationText}>@ {event.location}</Text> : null}
+                  </View>
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity onPress={() => startEdit(event)} style={styles.actionButton}>
+                      <Text style={styles.editText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeletePress(event)} style={styles.actionButton}>
+                      <Text style={styles.deleteText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
             );
           })
@@ -321,128 +452,171 @@ export default function CalendarCard() {
         )}
       </View>
 
-      {/* Adding event form */}
+      {/* Add / Edit Event Form */}
       <View style={styles.formContainer}>
-        <Text style={styles.formHeader}>Add an Event to the Selected Date</Text>
-        <TextInput style={styles.input} 
-          placeholder="Event Title:" 
-          placeholderTextColor='#888' 
-          value={newTitle} 
-          onChangeText={setNewTitle} 
+        <Text style={styles.formHeader}>
+          {isEditing ? `Editing event on ${editingDate}` : "Add an Event to the Selected Date"}
+        </Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Event Title:"
+          placeholderTextColor="#888"
+          value={newTitle}
+          onChangeText={setNewTitle}
         />
-        <TextInput style={styles.input}
-          placeholder="Start Time (e.g. 8:00 AM)" 
-          placeholderTextColor='#888' 
-          value={newStartTime} 
-          onChangeText={setNewStartTime} 
+        <TextInput
+          style={styles.input}
+          placeholder="Start Time (e.g. 8:00 AM)"
+          placeholderTextColor="#888"
+          value={newStartTime}
+          onChangeText={setNewStartTime}
         />
-        <TextInput style={styles.input}
-          placeholder="End Time (e.g. 12:00 PM)" 
-          placeholderTextColor='#888' 
-          value={newEndTime} 
-          onChangeText={setNewEndTime} 
+        <TextInput
+          style={styles.input}
+          placeholder="End Time (e.g. 12:00 PM)"
+          placeholderTextColor="#888"
+          value={newEndTime}
+          onChangeText={setNewEndTime}
         />
-        <TextInput style={styles.input} 
-          placeholder="Location (Optional)" 
-          placeholderTextColor='#888' 
-          value={newLocation} 
-          onChangeText={setNewLocation} 
+        <TextInput
+          style={styles.input}
+          placeholder="Location (Optional)"
+          placeholderTextColor="#888"
+          value={newLocation}
+          onChangeText={setNewLocation}
         />
-        <TouchableOpacity style={styles.button} onPress={handleAddEvent}>
-          <Text style={styles.buttonText}>Add Event</Text>
+        <TouchableOpacity style={styles.button} onPress={isEditing ? handleUpdateEvent : handleAddEvent}>
+          <Text style={styles.buttonText}>{isEditing ? "Save Changes" : "Add Event"}</Text>
         </TouchableOpacity>
+        {isEditing ? (
+          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={resetForm}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );
-};
-
-
-
+}
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '000',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 20,
-    marginVertical: 5
+    marginVertical: 5,
   },
   eventSection: {
     marginTop: 10,
     borderTopWidth: 2,
-    borderTopColor: 'black'
+    borderTopColor: "black",
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: 'black'
+    fontWeight: "600",
+    color: "black",
   },
   eventCard: {
-    backgroundColor: '#fff',
-    borderTopColor: 'black',
+    backgroundColor: "#fff",
+    borderTopColor: "black",
     borderTopWidth: 1,
     borderRadius: 2,
-    marginVertical: 2
+    marginVertical: 2,
+    paddingVertical: 4,
+  },
+  eventCardEditing: {
+    backgroundColor: "#eef6ff",
+  },
+  eventRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  eventInfo: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  actionRow: {
+    flexDirection: "row",
+  },
+  actionButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  editText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#007AFF",
+  },
+  deleteText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#d11a2a",
   },
   eventTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: 'black'
-  },
-  description: {
-    fontSize: 13,
-    color: 'black'
+    color: "black",
   },
   noEventText: {
     fontSize: 14,
-    color: 'black',
-    fontStyle: 'italic'
+    color: "black",
+    fontStyle: "italic",
   },
   timeText: {
     fontSize: 12,
-    color: 'black'
+    color: "black",
   },
   locationText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: 'black'
+    fontWeight: "bold",
+    color: "black",
   },
   formContainer: {
     marginTop: 10,
     paddingTop: 4,
     borderTopWidth: 1,
-    borderTopColor: 'black'
-  }, 
-  formHeader:{
+    borderTopColor: "black",
+  },
+  formHeader: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 4,
-    color: 'black',
+    color: "black",
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderRadius: 6,
     padding: 4,
     fontSize: 14,
     marginBottom: 8,
-    color: 'black',
+    color: "black",
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     padding: 10,
     borderRadius: 6,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+    alignItems: "center",
   },
   syncButton: {
-    marginTop: 10
+    marginTop: 10,
   },
   buttonDisabled: {
-    opacity: 0.6
-  }
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+  cancelButton: {
+    backgroundColor: "#eee",
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    color: "#333",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
 });
