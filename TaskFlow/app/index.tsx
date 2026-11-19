@@ -122,34 +122,17 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <DashboardCard />
+      <DashboardCard 
+      isGmailConnected={isGmailConnected}
+      isSyncing={isSyncing}
+      onConnectGmail={handleGoogleSignIn}
+      />
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         scrollEnabled={!isDrawingLocked}
       >
-        <View style={styles.gmailSection}>
-          <View style={styles.headerRow}>
-            <Text style={styles.title}>Gmail Sync</Text>
-            <View style={[styles.badge, isGmailConnected ? styles.badgeConnected : styles.badgeDisconnected]}>
-              <Text style={[styles.badgeText, isGmailConnected ? styles.badgeTextConnected : styles.badgeTextDisconnected]}>
-                {isGmailConnected ? '● Connected' : '○ Not Connected'}
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.button, isGmailConnected && styles.connectedButton]}
-            onPress={handleGoogleSignIn}
-            disabled={isSyncing}
-          >
-            <Text style={styles.buttonText}>
-              {isSyncing ? 'Connecting...' : isGmailConnected ? 'Reconnect / Update Gmail' : 'Connect Gmail Inbox'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.section}>
           <CalendarCard />
         </View>

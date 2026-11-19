@@ -36,6 +36,8 @@ export default function ForgotPasswordScreen() {
                 placeholderTextColor={'#999'}
                 value={email}
                 onChangeText={setEmail}
+                autoCapitalize='none'
+                keyboardType='email-address'
             />
             <TouchableOpacity style={styles.button}
                 onPress={handlePasswordReset}
@@ -44,7 +46,7 @@ export default function ForgotPasswordScreen() {
                 <Text style={styles.buttonText}>{loading ? 'Sending' : 'Send Reset Password Link'}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.button} onPress={() => router.back()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                 <Text style={styles.backText}>Back to Login page</Text>
             </TouchableOpacity>
         </View>
