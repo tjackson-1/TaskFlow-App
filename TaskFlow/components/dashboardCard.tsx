@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   TouchableOpacity,
@@ -21,7 +21,37 @@ type Props = {
 
 export default function DashboardCard({ isGmailConnected, isSyncing, onConnectGmail }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);  
   const insets = useSafeAreaInsets();
+
+  //loads signed in user
+  const loadUser = async () => {
+    const {data: {user}} = await supabase.auth.getUser();
+    if(!user){
+      setUserName(null);
+      setUserEmail(null);
+      return;
+    }
+    setUserEmail(user.email ?? null);
+
+    const {data: profile} = await supabase
+      .from('User')
+      .select('name')
+      .eq('supabase_uid', user.id)
+      .maybeSingle();
+    setUserName(profile?.name ?? null);
+  };
+
+  useEffect(() => {
+    loadUser();
+
+    //keep display if signed out
+    const {data: {subscription}} = supabase.auth.onAuthStateChange(() => {
+      setTimeout(loadUser, 0);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleSignOut = () => {
     setMenuOpen(false);
@@ -104,6 +134,21 @@ export default function DashboardCard({ isGmailConnected, isSyncing, onConnectGm
               </TouchableOpacity>
             </View>
 
+            {/*Signed in user */}
+            {userName || userEmail ? (
+              <View style={styles.userInfo}>
+                <Text style={styles.userLabel}>Signed in as:</Text>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {userName || userEmail}
+                </Text>
+                {userName && userEmail ? (
+                  <Text style={styles.userEmail} numberOfLines={1}>
+                    {userEmail}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
             <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
               <Text style={styles.signOutText}>Sign Out</Text>
             </TouchableOpacity>
@@ -143,6 +188,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 12,
+  },
+  userLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'black'
+  },
+  userInfo: {
+    marginTop: 10,
+    paddingTop: 10,
+    paddingHorizontal: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#eee'
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'black'
+  },
+  userEmail: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'black',
+    marginTop: 1
   },
   signOutButton: {
     marginTop: 8,

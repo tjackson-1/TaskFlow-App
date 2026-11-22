@@ -21,7 +21,7 @@ const toLocalDateString = (d: Date) => {
   return `${y}-${m}-${day}`;
 };
 
-// Works for both "2026-11-09" and full ISO timestamps
+// Works for both "2026-11-09" and ISO timestamps
 const eventDateKey = (value: string) =>
   value.length === 10 ? value : toLocalDateString(new Date(value));
 
@@ -77,6 +77,7 @@ export default function CalendarCard() {
   const [newStartTime, setNewStartTime] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
   const [newLocation, setNewLocation] = useState("");
+  const [newDescription, setNewDescription] = useState("");
 
   // edit mode: which event is being edited, and which day it lives on
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -257,6 +258,7 @@ export default function CalendarCard() {
     setNewStartTime("");
     setNewEndTime("");
     setNewLocation("");
+    setNewDescription("");
     setEditingId(null);
     setEditingDate("");
   };
@@ -284,6 +286,7 @@ export default function CalendarCard() {
       start_time: start,
       end_time: end,
       location: newLocation.trim() ? newLocation.trim() : null,
+      description: newDescription.trim() ? newDescription.trim() : null,
     };
 
     try {
@@ -319,6 +322,7 @@ export default function CalendarCard() {
     setNewStartTime(formatTime(event.start_time));
     setNewEndTime(sameTime ? "" : formatTime(event.end_time));
     setNewLocation(event.location ?? "");
+    setNewDescription(event.description ?? "");
   };
 
   const handleUpdateEvent = async () => {
@@ -344,6 +348,7 @@ export default function CalendarCard() {
           start_time: start,
           end_time: end,
           location: newLocation.trim() ? newLocation.trim() : null,
+          description: newDescription.trim() ? newDescription.trim() :null,
         })
         .eq("event_id", editingId)
         .select("*");
@@ -409,6 +414,7 @@ export default function CalendarCard() {
         }}
       />
 
+      {/*Gmail syncing */}
       <TouchableOpacity
         style={[styles.button, styles.syncButton, isSyncing && styles.buttonDisabled]}
         onPress={handleGmailSync}
@@ -434,6 +440,7 @@ export default function CalendarCard() {
                     <Text style={styles.eventTitle}>{event.title}</Text>
                     {start ? <Text style={styles.timeText}>{end ? `${start} – ${end}` : start}</Text> : null}
                     {event.location ? <Text style={styles.locationText}>@ {event.location}</Text> : null}
+                    {event.description ? <Text style={styles.descriptText}>@ {event.description}</Text> : null}
                   </View>
                   <View style={styles.actionRow}>
                     <TouchableOpacity onPress={() => startEdit(event)} style={styles.actionButton}>
@@ -484,6 +491,13 @@ export default function CalendarCard() {
           placeholderTextColor="#888"
           value={newLocation}
           onChangeText={setNewLocation}
+        />
+        <TextInput
+          style={[styles.input, styles.multline]}
+          placeholder="Description (Optional)"
+          placeholderTextColor="#888"
+          value={newDescription}
+          onChangeText={setNewDescription}
         />
         <TouchableOpacity style={styles.button} onPress={isEditing ? handleUpdateEvent : handleAddEvent}>
           <Text style={styles.buttonText}>{isEditing ? "Save Changes" : "Add Event"}</Text>
@@ -570,6 +584,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     color: "black",
+  },
+  descriptText: {
+    fontSize: 12,
+    color: 'black',
+  },
+  multline: {
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   formContainer: {
     marginTop: 10,

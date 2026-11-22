@@ -12,6 +12,8 @@ import DashboardCard from '../components/dashboardCard';
 import CalendarCard from '../components/calendarCard';
 import Board from '../components/quickdrawBoard';
 import MemoPad from '../components/memoPad';
+import TaskCard from '../components/taskCard';
+import CollapsibleSection from '../components/collaspsibleSection';
 import { supabase } from '../utils/supabase';
 import { saveGmailTokens } from '../utils/gmailTokens';
 import * as WebBrowser from 'expo-web-browser';
@@ -133,27 +135,38 @@ export default function App() {
         contentContainerStyle={styles.scrollContent}
         scrollEnabled={!isDrawingLocked}
       >
-        <View style={styles.section}>
+        <CollapsibleSection title="Calendar">
           <CalendarCard />
-        </View>
+        </CollapsibleSection>
 
-        <View style={styles.buttonSection}>
-          <TouchableOpacity
-            style={[styles.toggleButton, isDrawingLocked && styles.toggleActive]}
-            onPress={() => setIsDrawingLocked(!isDrawingLocked)}
-          >
-            <Text style={styles.toggleText}>
-              {isDrawingLocked ? '↕' : '✐ᝰ'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.divider} />
 
-        <View style={styles.section}>
-          <Board />
+        <View style={styles.columns}>
+          <View style={styles.leftColumn}>
+            <CollapsibleSection title="Tasks">
+              <TaskCard />
+            </CollapsibleSection>
+          </View>
         </View>
+        
+        <View style={styles.rightColumn}>
+          <CollapsibleSection title="Whiteboard">
+            <View style={styles.buttonSection}>
+              <TouchableOpacity
+                style={[styles.toggleButton, isDrawingLocked && styles.toggleActive]}
+                onPress={() => setIsDrawingLocked(!isDrawingLocked)}
+              >
+                <Text style={styles.toggleText}>
+                  {isDrawingLocked ? '↕' : '✐ᝰ'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        <View style={styles.section}>
-          <MemoPad />
+            <Board />
+          </CollapsibleSection>
+          <CollapsibleSection title="Memo Pad">
+            <MemoPad />
+          </CollapsibleSection>
         </View>
       </ScrollView>
     </SafeAreaProvider>
@@ -170,6 +183,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center'
   },
+  divider: {
+    height: 4,
+    backgroundColor: '#eee',
+    marginVertical: 10,
+    marginHorizontal:6
+  },
+  columns: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  leftColumn: {
+    flex: 1
+  },
+  rightColumn: {
+    flex: 1
+  },
   section: {
     marginVertical: 10,
     marginHorizontal: 4
@@ -178,9 +207,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100
   },
   buttonSection: {
-    marginTop: 0,
     marginHorizontal: 4,
-    marginBottom: 0
   },
   toggleText: {
     fontSize: 12,
