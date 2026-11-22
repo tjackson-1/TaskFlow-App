@@ -21,7 +21,7 @@ const toLocalDateString = (d: Date) => {
   return `${y}-${m}-${day}`;
 };
 
-// Works for both "2026-11-09" and ISO timestamps
+// Works for both "2026-11-09" and full ISO timestamps
 const eventDateKey = (value: string) =>
   value.length === 10 ? value : toLocalDateString(new Date(value));
 
